@@ -24,6 +24,12 @@
     border-radius: 6px; padding: 6px 4px; font-size: 12px; cursor: pointer;
   }
   .presets button:hover { background: #38455a; }
+  .stepper { display: flex; gap: 6px; margin-top: 8px; }
+  .stepper button {
+    flex: 1; background: #2a3140; color: #eee; border: 1px solid #444;
+    border-radius: 6px; padding: 6px 4px; font-size: 14px; font-weight: 600; cursor: pointer;
+  }
+  .stepper button:hover { background: #38455a; }
   #status { font-size: 11px; color: #999; margin-top: 8px; min-height: 14px; }
   #attribution {
     position: absolute; z-index: 1000; bottom: 4px; right: 8px;
@@ -36,7 +42,13 @@
 <div id="panel">
   <h1>🌍 海面高度シミュレーター</h1>
   <div id="seaLevelValue">0 m</div>
-  <input type="range" id="slider" min="-11000" max="8850" step="10" value="0">
+  <input type="range" id="slider" min="-11000" max="8850" step="1" value="0">
+  <div class="stepper">
+    <button id="stepBigDown" title="-100m">◁◁</button>
+    <button id="stepDown" title="-1m/-10m">◁</button>
+    <button id="stepUp" title="+1m/+10m">▷</button>
+    <button id="stepBigUp" title="+100m">▷▷</button>
+  </div>
   <div class="presets">
     <button data-v="-11000">全て陸地</button>
     <button data-v="0">現在</button>
@@ -199,8 +211,8 @@
         { id: LAYER_ID, type: 'raster', source: SOURCE_ID }
       ]
     },
-    center: [0, 20],
-    zoom: 1.5,
+    center: [138, 37],
+    zoom: 2.2,
     minZoom: 1,
     maxZoom: 9,
     attributionControl: false,
@@ -240,6 +252,22 @@
   document.querySelectorAll('.presets button').forEach((btn) => {
     btn.addEventListener('click', () => setSeaLevel(Number(btn.dataset.v)));
   });
+
+  // ステップボタン: 海面付近(±10m未満)は1m刻み、それ以外は10m刻み。
+  // ◁◁ / ▷▷ は常に100m刻み。
+  const MIN_SL = -11000, MAX_SL = 8850;
+  function stepAmount(big) {
+    if (big) return 100;
+    return Math.abs(seaLevel) < 10 ? 1 : 10;
+  }
+  function stepSeaLevel(dir, big) {
+    const next = seaLevel + dir * stepAmount(big);
+    setSeaLevel(Math.max(MIN_SL, Math.min(MAX_SL, next)));
+  }
+  document.getElementById('stepDown').addEventListener('click', () => stepSeaLevel(-1, false));
+  document.getElementById('stepUp').addEventListener('click', () => stepSeaLevel(1, false));
+  document.getElementById('stepBigDown').addEventListener('click', () => stepSeaLevel(-1, true));
+  document.getElementById('stepBigUp').addEventListener('click', () => stepSeaLevel(1, true));
 
   let loadingCount = 0;
   map.on('dataloading', (e) => {
