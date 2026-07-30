@@ -240,12 +240,32 @@
   const valueLabel = document.getElementById('seaLevelValue');
   const status = document.getElementById('status');
 
+  // タイルの再描画は重い処理のため、素早い連続操作(スライダーの
+  // ドラッグや連打)の途中経過はすべて描画せず間引き、直前の描画が
+  // 完了した時点での最新値だけを一気に描画する。これにより大幅な
+  // 海面高度の変更でも動作が遅くならず、目的の高度まで飛ぶように表示される。
+  let renderedSeaLevel = seaLevel;
+  let renderInFlight = false;
+  let pendingSeaLevel = null;
+
+  function applyPendingRender() {
+    renderedSeaLevel = pendingSeaLevel;
+    const src = map.getSource(SOURCE_ID);
+    if (src) src.setTiles([tileTemplate(renderedSeaLevel)]);
+  }
+
+  function requestTileRender(v) {
+    pendingSeaLevel = v;
+    if (renderInFlight) return;
+    renderInFlight = true;
+    applyPendingRender();
+  }
+
   function setSeaLevel(v) {
     seaLevel = v;
     slider.value = v;
     valueLabel.textContent = (v >= 0 ? '+' : '') + Math.round(v) + ' m';
-    const src = map.getSource(SOURCE_ID);
-    if (src) src.setTiles([tileTemplate(seaLevel)]);
+    requestTileRender(v);
   }
 
   slider.addEventListener('input', (e) => setSeaLevel(Number(e.target.value)));
@@ -273,7 +293,16 @@
   map.on('dataloading', (e) => {
     if (e.sourceId === SOURCE_ID) { loadingCount++; status.textContent = '読み込み中...'; }
   });
-  map.on('idle', () => { status.textContent = ''; });
+  map.on('idle', () => {
+    status.textContent = '';
+    if (renderInFlight) {
+      if (pendingSeaLevel !== renderedSeaLevel) {
+        applyPendingRender();
+      } else {
+        renderInFlight = false;
+      }
+    }
+  });
   map.on('error', (e) => { status.textContent = 'エラーが発生しました(タイル取得失敗の可能性)'; console.error(e); });
 })();
 </script>
