@@ -54,6 +54,9 @@
     <button data-v="0">現在</button>
     <button data-v="8850">全て海</button>
   </div>
+  <div class="stepper" style="margin-top: 8px;">
+    <button id="toggle3d">🏔️ 3Dで見る(山や谷を立体表示)</button>
+  </div>
   <div id="status"></div>
 </div>
 <div id="attribution">標高データ: Terrarium (Mapzen / AWS Open Data)</div>
@@ -64,6 +67,7 @@
   const TERRAIN_URL = 'https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png';
   const SOURCE_ID = 'elevation-source';
   const LAYER_ID = 'elevation-layer';
+  const TERRAIN_SOURCE_ID = 'terrain-dem-source';
 
   let seaLevel = 0;
   const elevationCache = new Map(); // "z/x/y" -> Float32Array
@@ -204,21 +208,32 @@
           minzoom: 0,
           maxzoom: 9,
           attribution: 'Terrarium (Mapzen / AWS Open Data)'
+        },
+        [TERRAIN_SOURCE_ID]: {
+          type: 'raster-dem',
+          tiles: [TERRAIN_URL],
+          tileSize: TILE_SIZE,
+          encoding: 'terrarium',
+          minzoom: 0,
+          maxzoom: 9,
+          attribution: 'Terrarium (Mapzen / AWS Open Data)'
         }
       },
       layers: [
         { id: 'bg', type: 'background', paint: { 'background-color': '#000000' } },
         { id: LAYER_ID, type: 'raster', source: SOURCE_ID }
-      ]
+      ],
+      terrain: { source: TERRAIN_SOURCE_ID, exaggeration: 1.5 }
     },
     center: [138, 37],
     zoom: 2.2,
     minZoom: 1,
     maxZoom: 9,
+    maxPitch: 80,
     attributionControl: false,
   });
 
-  map.addControl(new maplibregl.NavigationControl(), 'top-right');
+  map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), 'top-right');
   map.addControl(new maplibregl.AttributionControl({ compact: true }));
 
   map.on('load', () => {
@@ -288,6 +303,14 @@
   document.getElementById('stepUp').addEventListener('click', () => stepSeaLevel(1, false));
   document.getElementById('stepBigDown').addEventListener('click', () => stepSeaLevel(-1, true));
   document.getElementById('stepBigUp').addEventListener('click', () => stepSeaLevel(1, true));
+
+  const toggle3dBtn = document.getElementById('toggle3d');
+  let is3D = false;
+  toggle3dBtn.addEventListener('click', () => {
+    is3D = !is3D;
+    map.easeTo({ pitch: is3D ? 60 : 0, duration: 800 });
+    toggle3dBtn.textContent = is3D ? '🗺️ 2Dに戻す' : '🏔️ 3Dで見る(山や谷を立体表示)';
+  });
 
   let loadingCount = 0;
   map.on('dataloading', (e) => {
